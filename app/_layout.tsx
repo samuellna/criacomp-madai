@@ -4,6 +4,7 @@ import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -23,13 +24,23 @@ export default function RootLayout() {
     SplashScreen.hideAsync();
   }, []);
 
+  const insets = useSafeAreaInsets();
+
   return (
-    <QueryClientProvider client={queryClient}>
-      <TaskProvider>
-        <GestureHandlerRootView style={{ flex: 1 }}>
-          <RootLayoutNav />
-        </GestureHandlerRootView>
-      </TaskProvider>
-    </QueryClientProvider>
+    <SafeAreaProvider>
+      <QueryClientProvider client={queryClient}>
+        <TaskProvider>
+          <GestureHandlerRootView style={{
+            flex: 1,
+            paddingTop: insets.top,
+            paddingBottom: insets.bottom,
+            paddingLeft: insets.left,
+            paddingRight: insets.right
+          }}>
+            <RootLayoutNav />
+          </GestureHandlerRootView>
+        </TaskProvider>
+      </QueryClientProvider>
+    </SafeAreaProvider>
   );
 }
