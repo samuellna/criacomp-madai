@@ -90,7 +90,7 @@ export default function TaskDetailScreen() {
     <>
       <Stack.Screen
         options={{
-          title: "Task Details",
+          title: "Sobre a Tarefa",
           headerRight: () => (
             <Pressable onPress={handleDelete}>
               <Trash2 size={20} color="#FF3B30" />
@@ -119,14 +119,14 @@ export default function TaskDetailScreen() {
               {isOverdue && (
                 <View style={styles.overdueBadge}>
                   <AlertTriangle size={16} color="#fff" />
-                  <Text style={styles.overdueText}>OVERDUE</Text>
+                  <Text style={styles.overdueText}>ATRASADA</Text>
                 </View>
               )}
             </View>
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Description</Text>
+            <Text style={styles.sectionTitle}>Descrição</Text>
             <Text style={styles.description}>{task.description}</Text>
           </View>
 
@@ -148,7 +148,7 @@ export default function TaskDetailScreen() {
             <View style={styles.section}>
               <View style={styles.guidanceHeader}>
                 <Lightbulb size={20} color="#FF9500" />
-                <Text style={styles.sectionTitle}>AI Guidance</Text>
+                <Text style={styles.sectionTitle}>Ajuda da IA</Text>
               </View>
               <Text style={styles.guidance}>{task.aiGuidance.guide}</Text>
 
@@ -178,7 +178,7 @@ export default function TaskDetailScreen() {
               <CheckCircle size={20} color="#fff" />
             )}
             <Text style={styles.actionButtonText}>
-              {isCompleted ? "Mark as Pending" : "Mark as Complete"}
+              {isCompleted ? "Marcar como Pendente" : "Marcar como Concluída"}
             </Text>
           </Pressable>
         </View>
