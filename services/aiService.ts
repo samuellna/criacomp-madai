@@ -1,108 +1,145 @@
-import { TaskExtraction } from '@/types';
+import { TaskExtraction } from "@/types";
+import api from "./apiConnection";
 
 export const transcribeAudio = async (audioFile: FormData): Promise<string> => {
-  const response = await fetch('https://toolkit.rork.com/stt/transcribe/', {
-    method: 'POST',
-    body: audioFile
-  });
-
-  if (!response.ok) {
-    throw new Error('Transcription failed');
+  try {
+    const response = await api.post("/audio/transcriptions", audioFile, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return response.data.text;
+  } catch (error: any) {
+    console.error(
+      "OpenAI Transcription Error:",
+      error.response?.data || error.message
+    );
+    throw new Error("Transcription failed");
   }
-
-  const result = await response.json();
-  return result.text;
 };
 
-export const extractTaskFromTranscript = async (transcript: string): Promise<TaskExtraction> => {
+export const extractTaskFromTranscript = async (
+  transcript: string
+): Promise<TaskExtraction> => {
   const messages = [
     {
-      role: 'system' as const,
-      content: `Extract task information from the user's speech. Return a JSON object with these exact fields:
-      - title: string (short task name)
-      - description: string (detailed description)
-      - category: string (work, personal, health, etc.)
-      - priority: "low" | "medium" | "high"
-      - due_date: string (ISO date format, if mentioned, otherwise set to 24 hours from now)
+      role: "system",
+      content: `Você é um assistente inteligente que ajuda estudantes e profissionais a detalharem tarefas faladas em planos de ação claros, voltados para estudo ou produtividade.
+      Dada uma transcrição de voz (geralmente informal e em português, inglês ou misturado), retorne um detalhamento da tarefa em português, formatado em Markdown, com a seguinte estrutura:
       
-      If information is missing, make reasonable assumptions based on context.`
+      ## Resumo da tarefa  
+      Reformule a tarefa mencionada em um parágrafo claro e objetivo.
+
+      ## Passo a passo sugerido  
+      Liste ações práticas que o usuário deve seguir para realizar a tarefa com eficiência.
+
+      ## Cronograma sugerido  
+      Sugira uma divisão temporal das subtarefas, com base no prazo mencionado, se houver.
+
+      ## Fontes confiáveis de apoio  
+      Liste pelo menos 3 fontes úteis, como vídeos, artigos ou apostilas, adequadas ao tipo de tarefa (estudo ou produtividade), usando fontes confiáveis como YouTube educacional, Khan Academy, Scielo, Sebrae, etc.
+
+      Instruções:  
+      - Adapte o nível de detalhamento para estudantes universitários ou jovens profissionais.  
+      - Seja proativo ao inferir prazos e organizar subtarefas.  
+      - Sempre responda em português, mesmo que a entrada esteja em outro idioma.  
+      - Retorne somente o conteúdo em Markdown.  
+      - Não inclua explicações adicionais nem comentários fora da estrutura pedida.`,
     },
     {
-      role: 'user' as const,
-      content: `Extract task details from: "${transcript}"`
-    }
+      role: "user",
+      content: `Extract task details from: "${transcript}"`,
+    },
   ];
 
-  const response = await fetch('https://toolkit.rork.com/text/llm/', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ messages })
-  });
+  try {
+    const response = await api.post(
+      "/chat/completions",
+      {
+        model: "gpt-4.1", // ou "gpt-3.5-turbo"
+        messages,
+        temperature: 0.7,
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
-  if (!response.ok) {
-    throw new Error('Task extraction failed');
+    const result = response.data.choices[0].message.content.trim();
+    console.log("Extracted task details:", result);
+
+    return result as TaskExtraction;
+  } catch (error: any) {
+    console.error(
+      "Erro ao extrair tarefa:",
+      error?.response?.data || error.message
+    );
+    throw new Error("Falha ao extrair a tarefa do transcript.");
   }
-
-  const result = await response.json();
-  return JSON.parse(result.completion);
 };
 
-export const generateTaskGuidance = async (title: string, description: string): Promise<{ guide: string; sources: string[] }> => {
+export const generateTaskGuidance = async (
+  title: string,
+  description: string
+): Promise<{ guide: string; sources: string[] }> => {
   const messages = [
     {
-      role: 'system' as const,
+      role: "system" as const,
       content: `Based on the task provided, generate a helpful getting-started guide and suggest 2 relevant sources. Return a JSON object with:
       - guide: string (concise 2-3 sentence guide on how to begin)
       - sources: string[] (2 helpful search terms, tutorial names, or resource suggestions)
       
-      Keep it practical and actionable.`
+      Keep it practical and actionable.`,
     },
     {
-      role: 'user' as const,
-      content: `Task: ${title}\nDescription: ${description}`
-    }
+      role: "user" as const,
+      content: `Task: ${title}\nDescription: ${description}`,
+    },
   ];
 
-  const response = await fetch('https://toolkit.rork.com/text/llm/', {
-    method: 'POST',
+  const response = await fetch("https://toolkit.rork.com/text/llm/", {
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json'
+      "Content-Type": "application/json",
     },
-    body: JSON.stringify({ messages })
+    body: JSON.stringify({ messages }),
   });
 
   if (!response.ok) {
-    throw new Error('Guidance generation failed');
+    throw new Error("Guidance generation failed");
   }
 
   const result = await response.json();
   return JSON.parse(result.completion);
 };
 
-export const generateRoastMessage = async (taskTitle: string, overdueMinutes: number): Promise<string> => {
+export const generateRoastMessage = async (
+  taskTitle: string,
+  overdueMinutes: number
+): Promise<string> => {
   const messages = [
     {
-      role: 'system' as const,
-      content: `You are a sarcastic, aggressive productivity coach. The user has an overdue task. Generate a short, witty roast message that's motivating but brutally honest. Keep it under 50 words and make it sting a little.`
+      role: "system" as const,
+      content: `You are a sarcastic, aggressive productivity coach. The user has an overdue task. Generate a short, witty roast message that's motivating but brutally honest. Keep it under 50 words and make it sting a little.`,
     },
     {
-      role: 'user' as const,
-      content: `Task "${taskTitle}" is ${overdueMinutes} minutes overdue. Roast me.`
-    }
+      role: "user" as const,
+      content: `Task "${taskTitle}" is ${overdueMinutes} minutes overdue. Roast me.`,
+    },
   ];
 
-  const response = await fetch('https://toolkit.rork.com/text/llm/', {
-    method: 'POST',
+  const response = await fetch("https://toolkit.rork.com/text/llm/", {
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json'
+      "Content-Type": "application/json",
     },
-    body: JSON.stringify({ messages })
+    body: JSON.stringify({ messages }),
   });
 
   if (!response.ok) {
-    throw new Error('Roast generation failed');
+    throw new Error("Roast generation failed");
   }
 
   const result = await response.json();
