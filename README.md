@@ -1,50 +1,78 @@
-# Welcome to your Expo app 👋
+## MadAI
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+**MadAi** é um app mobile que converte áudios em tarefas organizadas usando IA. O mascote "bravo" traz humor ao cobrar o usuário por atrasos. Basta gravar sua tarefa; a IA transcreve, interpreta, estrutura e sugere plano de ação e fontes úteis automaticamente.
 
-## Get started
+### Funcionalidades
 
-1. Install dependencies
+- Gravação de áudio via microfone
+- Transcrição automática com a API Whisper
+- Interpretação da tarefa com GPT-4
+- Geração automática de:
 
-   ```bash
-   npm install
-   ```
+  - Título, descrição, categoria, prioridade e data limite
+  - Sugestões de fontes e um guia de início
 
-2. Start the app
+- Mascote com falas personalizadas em tarefas urgentes ou atrasadas
+- Armazenamento local de tarefas (AsyncStorage)
+- Interface simples e orientada à usabilidade
 
-   ```bash
-   npx expo start
-   ```
+### Tecnologias utilizadas
 
-In the output, you'll find options to open the app in a
+- [React Native](https://reactnative.dev/) com [Expo](https://expo.dev/)
+- [OpenAI GPT-4](https://platform.openai.com/docs/guides/gpt) e [Whisper API](https://platform.openai.com/docs/guides/speech-to-text)
+- [AsyncStorage](https://react-native-async-storage.github.io/async-storage/)
+- [Expo AV](https://docs.expo.dev/versions/latest/sdk/av/) (gravação de áudio)
+- [Expo Notifications](https://docs.expo.dev/push-notifications/overview/)
+- [TypeScript](https://www.typescriptlang.org/)
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+### Instalação e execução
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+1. Clone o repositório:
 
 ```bash
-npm run reset-project
+git clone https://github.com/samuellna/criacomp-madai.git
+cd criacomp-madai
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+2. Instale as dependências:
 
-## Learn more
+```bash
+pnpm install
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+3. Crie um arquivo `.env` com a chave da OpenAI:
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+```env
+OPENAI_API_KEY=coloque_sua_chave_aqui
+```
 
-## Join the community
+4. Inicie o app:
 
-Join our community of developers creating universal apps.
+```bash
+pnpm start
+```
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+### Estrutura do projeto
+
+- `/components`: componentes reutilizáveis da interface (ex: gravador de voz)
+- `/hooks`: hooks personalizados para manipular tarefas
+- `/services`: integração com APIs (OpenAI)
+- `/types`: interfaces e tipagens do projeto
+- `/app`: telas e navegação
+
+### Fluxo resumido
+
+1. O usuário grava um áudio com o que precisa fazer.
+2. O áudio é enviado para transcrição via Whisper.
+3. O texto transcrito é processado pelo GPT-4:
+
+   - Geração da tarefa (título, descrição, prioridade, prazo etc.)
+   - Geração de guia prático e fontes relevantes
+
+4. A tarefa é salva localmente.
+5. Caso a tarefa fique próxima do prazo ou atrasada, o mascote MadAi pode emitir notificações com broncas personalizadas.
+
+
+### Licença
+
+Este projeto está licenciado sob a Licença MIT.
