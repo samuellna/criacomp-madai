@@ -17,6 +17,7 @@ import {
   StyleSheet,
   Text,
   View,
+  Linking,
 } from "react-native";
 
 export default function TaskDetailScreen() {
@@ -84,6 +85,18 @@ export default function TaskDetailScreen() {
         },
       },
     ]);
+  };
+
+  const handleOpenSource = (source: string) => {
+    console.log("Opening source:", source);
+    // Tenta abrir como URL direta, se for válida. Caso contrário, busca no Google.
+    const isValidUrl =
+      source.startsWith("http://") || source.startsWith("https://");
+    const url = isValidUrl
+      ? source
+      : `https://www.google.com/search?q=${encodeURIComponent(source)}`;
+
+    Linking.openURL(url);
   };
 
   return (
@@ -154,11 +167,14 @@ export default function TaskDetailScreen() {
 
               {task.aiGuidance.sources.length > 0 && (
                 <>
-                  <Text style={styles.sourcesTitle}>Helpful Resources:</Text>
+                  <Text style={styles.sourcesTitle}>Fontes úteis:</Text>
                   {task.aiGuidance.sources.map((source, index) => (
-                    <Text key={index} style={styles.source}>
-                      • {source}
-                    </Text>
+                    <Pressable
+                      key={index}
+                      onPress={() => handleOpenSource(source)}
+                    >
+                      <Text style={styles.sourceLink}>• {source}</Text>
+                    </Pressable>
                   ))}
                 </>
               )}
@@ -316,5 +332,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "#fff",
+  },
+  sourceLink: {
+    fontSize: 14,
+    color: "#007AFF",
+    marginBottom: 4,
+    lineHeight: 20,
+    textDecorationLine: "underline",
   },
 });

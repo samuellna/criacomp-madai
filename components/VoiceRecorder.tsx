@@ -117,6 +117,27 @@ export default function VoiceRecorder({
     }
   };
 
+  const cancelRecording = async () => {
+    if (recording) {
+      try {
+        await recording.stopAndUnloadAsync();
+      } catch (err) {
+        console.error("Failed to cancel recording", err);
+        Alert.alert("Error", "Failed to cancel recording. Please try again.");
+      }
+    }
+
+    setRecording(null);
+    setIsRecording(false);
+
+    if (Platform.OS !== "web") {
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+      });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    }
+  };
+
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -152,14 +173,19 @@ export default function VoiceRecorder({
       </Text>
 
       {isRecording && (
-        <View style={styles.waveform}>
-          {[...Array(5)].map((_, i) => (
-            <View
-              key={i}
-              style={[styles.waveBar, { animationDelay: `${i * 0.1}s` }]}
-            />
-          ))}
-        </View>
+        <>
+          <View style={styles.waveform}>
+            {[...Array(5)].map((_, i) => (
+              <View
+                key={i}
+                style={[styles.waveBar, { animationDelay: `${i * 0.1}s` }]}
+              />
+            ))}
+          </View>
+          <Pressable onPress={cancelRecording} style={styles.cancelButton}>
+            <Text style={styles.cancelText}>Cancelar gravação</Text>
+          </Pressable>
+        </>
       )}
     </View>
   );
@@ -203,5 +229,17 @@ const styles = StyleSheet.create({
     height: 20,
     backgroundColor: "#007AFF",
     borderRadius: 2,
+  },
+  cancelButton: {
+    marginTop: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: "#d21111ff",
+    borderRadius: 8,
+  },
+  cancelText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "500",
   },
 });
