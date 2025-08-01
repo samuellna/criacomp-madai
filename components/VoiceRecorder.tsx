@@ -148,7 +148,7 @@ export default function VoiceRecorder({
           ? "Processing your recording..."
           : isRecording
           ? `Recording... ${formatDuration(recordingDuration)}`
-          : "Tap to record your task"}
+          : "Aperte para gravar"}
       </Text>
 
       {isRecording && (
