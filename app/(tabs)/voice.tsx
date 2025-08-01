@@ -28,6 +28,7 @@ export default function VoiceScreen() {
     null
   );
   const [transcript, setTranscript] = useState<string>("");
+  const [detailedTranscript, setDetailedTranscript] = useState<string>("");
 
   const processingMutation = useMutation({
     mutationFn: async (audioUri: string) => {
@@ -61,13 +62,14 @@ export default function VoiceScreen() {
       }
 
       const transcript = await transcribeAudio(formData);
-      const detailedTask = await extractDetailedTranscript(transcript);
-      const taskData = await generateTask(detailedTask);
-      return { transcript, taskData };
+      const detailedTranscript = await extractDetailedTranscript(transcript);
+      const taskData = await generateTask(detailedTranscript);
+      return { transcript, taskData, detailedTranscript };
     },
     onSuccess: ({ transcript, taskData }) => {
       setTranscript(transcript);
       setExtractedTask(taskData);
+      setDetailedTranscript(taskData.description);
     },
     onError: (error) => {
       console.error("Processing error:", error);
@@ -82,7 +84,7 @@ export default function VoiceScreen() {
     mutationFn: async (taskData: TaskExtraction) => {
       const guidance = await generateTaskGuidance(
         taskData.title,
-        taskData.description
+        detailedTranscript
       );
 
       const task = await addTask({
