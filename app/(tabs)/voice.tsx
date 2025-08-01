@@ -3,7 +3,8 @@ import * as FileSystem from "expo-file-system";
 import VoiceRecorder from "@/components/VoiceRecorder";
 import { useTasks } from "@/hooks/useTasks";
 import {
-  extractTaskFromTranscript,
+  extractDetailedTranscript,
+  generateTask,
   generateTaskGuidance,
   transcribeAudio,
 } from "@/services/aiService";
@@ -60,11 +61,8 @@ export default function VoiceScreen() {
       }
 
       const transcript = await transcribeAudio(formData);
-      console.log("Transcript:", transcript);
-
-      const taskData = await extractTaskFromTranscript(transcript);
-      console.log("Extracted task data:", taskData);
-
+      const detailedTask = await extractDetailedTranscript(transcript);
+      const taskData = await generateTask(detailedTask);
       return { transcript, taskData };
     },
     onSuccess: ({ transcript, taskData }) => {
@@ -97,6 +95,7 @@ export default function VoiceScreen() {
         aiGuidance: guidance,
       });
 
+      console.log("Task created:", task);
       return task;
     },
     onSuccess: () => {
@@ -136,9 +135,10 @@ export default function VoiceScreen() {
       <Stack.Screen options={{ title: "Voice Input" }} />
       <ScrollView style={styles.container}>
         <View style={styles.content}>
-          <Text style={styles.title}>Record Your Task</Text>
+          <Text style={styles.title}>Descreva a sua tarefa</Text>
           <Text style={styles.subtitle}>
-            Describe what you need to do, when its due, and how important it is
+            Descreva o que você precisa fazer, quando deve ser concluído e qual
+            a prioridade
           </Text>
 
           <VoiceRecorder
@@ -148,14 +148,14 @@ export default function VoiceScreen() {
 
           {transcript && (
             <View style={styles.transcriptSection}>
-              <Text style={styles.sectionTitle}>What I heard:</Text>
+              <Text style={styles.sectionTitle}>O que eu entendi:</Text>
               <Text style={styles.transcript}>"{transcript}"</Text>
             </View>
           )}
 
           {extractedTask && (
             <View style={styles.extractedSection}>
-              <Text style={styles.sectionTitle}>Extracted Task:</Text>
+              <Text style={styles.sectionTitle}>Atividade extraída:</Text>
               <View style={styles.taskPreview}>
                 <Text style={styles.taskTitle}>{extractedTask.title}</Text>
                 <Text style={styles.taskDescription}>
