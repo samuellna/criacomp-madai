@@ -1,6 +1,8 @@
 import { TaskExtraction } from "@/types";
 import api from "./apiConnection";
 
+import * as FileSystem from "expo-file-system";
+
 // Transcrição de áudio usando OpenAI Whisper
 export const transcribeAudio = async (audioFile: FormData): Promise<string> => {
   try {
@@ -99,6 +101,7 @@ export const generateTask = async (
       Instruções:
       - Sempre responda em português.
       - Infira o campo 'due_date' com base em expressões como 'amanhã', 'daqui a uma semana', etc.
+      - Caso o ano não seja mencionado, use o ano atual.
       - Não inclua explicações, comentários ou markdown. Apenas o JSON puro.`,
     },
     {
@@ -233,33 +236,101 @@ export const generateTaskGuidance = async (
   }
 };
 
-export const generateRoastMessage = async (
+export const generateRoastAudio = async (
+  taskId: string,
   taskTitle: string,
-  overdueMinutes: number
+  taskDescription: string
 ): Promise<string> => {
-  const messages = [
-    {
-      role: "system" as const,
-      content: `You are a sarcastic, aggressive productivity coach. The user has an overdue task. Generate a short, witty roast message that's motivating but brutally honest. Keep it under 50 words and make it sting a little.`,
-    },
-    {
-      role: "user" as const,
-      content: `Task "${taskTitle}" is ${overdueMinutes} minutes overdue. Roast me.`,
-    },
-  ];
+  const filePath = `${FileSystem.documentDirectory}roast-${taskId}.mp3`;
 
-  const response = await fetch("https://toolkit.rork.com/text/llm/", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ messages }),
-  });
-
-  if (!response.ok) {
-    throw new Error("Roast generation failed");
+  // Retorna o arquivo local se já existir
+  const fileInfo = await FileSystem.getInfoAsync(filePath);
+  if (fileInfo.exists) {
+    return filePath;
   }
 
-  const result = await response.json();
-  return result.completion;
+  const systemPrompt = `
+    Você é um coach de produtividade irritado, grosseiro e boca suja. 
+    Seu trabalho é fazer o usuário se sentir envergonhado por deixar uma tarefa pendente.
+
+    - Use palavrões, gagueiras, suspiros
+    - Fale como se estivesse **com muita raiva**
+    - Máximo de 25 palavras, em **português do Brasil**
+    - Soe **acelerado, debochado, impaciente**
+    - Isso será lido com uma voz robótica, então escreva com pausas e entonação
+
+    Não seja educado. Nunca. Seja ofensivo, rápido e direto ao ponto.
+  `;
+
+  const userPrompt = `
+    Tarefa pendente:
+    Título: "${taskTitle}"
+    Descrição: "${taskDescription}"
+
+    Agora xinga o usuário, em português do Brasil. Seja escroto.
+  `;
+
+  // Gera o texto da bronca
+  const chatResponse = await fetch(
+    "https://api.openai.com/v1/chat/completions",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gpt-4o",
+        messages: [
+          { role: "system", content: systemPrompt.trim() },
+          { role: "user", content: userPrompt.trim() },
+        ],
+      }),
+    }
+  );
+
+  if (!chatResponse.ok) {
+    throw new Error("Erro ao gerar o texto da bronca");
+  }
+
+  const chatData = await chatResponse.json();
+  const roastText = chatData.choices[0].message.content;
+
+  // Gera o áudio via TTS
+  const ttsResponse = await fetch("https://api.openai.com/v1/audio/speech", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "tts-1",
+      voice: "nova",
+      input: roastText,
+    }),
+  });
+
+  if (!ttsResponse.ok) {
+    throw new Error("Erro ao gerar o áudio da bronca");
+  }
+
+  // Converte Blob em base64 usando FileReader
+  const blob = await ttsResponse.blob();
+  const base64 = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const dataUrl = reader.result as string;
+      const base64Data = dataUrl.split(",")[1]; // remove o prefixo "data:audio/mp3;base64,"
+      resolve(base64Data);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+
+  // Salva o áudio como arquivo
+  await FileSystem.writeAsStringAsync(filePath, base64, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+
+  return filePath;
 };
