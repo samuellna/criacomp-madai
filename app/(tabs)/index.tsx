@@ -3,6 +3,7 @@ import { useTasks } from "@/hooks/useTasks";
 import { Task } from "@/types";
 import { Stack, router } from "expo-router";
 import { useEffect, useState } from "react";
+import * as FileSystem from "expo-file-system";
 import {
   FlatList,
   Modal,
@@ -14,6 +15,7 @@ import {
 } from "react-native";
 import { Audio } from "expo-av";
 import { BlurView } from "expo-blur";
+import { generateRoastAudio } from "@/services/aiService";
 
 type FilterType = "all" | "pending" | "completed" | "high" | "medium" | "low";
 
@@ -66,26 +68,17 @@ export default function TaskListScreen() {
   const [sound, setSound] = useState<any>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [showBroncaButton, setShowBroncaButton] = useState(false);
-
-  const audioUri =
-    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"; // troque para seu áudio
+  const [isLoadingAudio, setIsLoadingAudio] = useState(false);
 
   const togglePlayback = async () => {
-    if (!sound) {
-      const { sound: newSound } = await Audio.Sound.createAsync(
-        { uri: audioUri },
-        { shouldPlay: true }
-      );
-      setSound(newSound);
-      setIsPlaying(true);
+    if (!sound) return;
+
+    if (isPlaying) {
+      await sound.pauseAsync();
+      setIsPlaying(false);
     } else {
-      if (isPlaying) {
-        await sound.pauseAsync();
-        setIsPlaying(false);
-      } else {
-        await sound.playAsync();
-        setIsPlaying(true);
-      }
+      await sound.playAsync();
+      setIsPlaying(true);
     }
   };
 
@@ -110,6 +103,48 @@ export default function TaskListScreen() {
 
     setShowBroncaButton(hasUrgentTask);
   }, [tasks]);
+
+  const playRoastForWorstTask = async () => {
+    const urgentTask = tasks
+      .filter((task) => task.status === "pending")
+      .sort(
+        (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
+      )[0];
+
+    if (!urgentTask) return;
+
+    try {
+      setIsLoadingAudio(true);
+      const audioBlob = await generateRoastAudio(
+        urgentTask.title,
+        urgentTask.description
+      );
+
+      // Salva o áudio no armazenamento temporário
+      const path = `${FileSystem.cacheDirectory}bronca.mp3`;
+      const reader = new FileReader();
+
+      reader.onloadend = async () => {
+        const base64 = (reader.result as string).split(",")[1];
+        await FileSystem.writeAsStringAsync(path, base64, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+
+        const { sound: newSound } = await Audio.Sound.createAsync({
+          uri: path,
+        });
+        setSound(newSound);
+        setIsPlaying(true);
+        await newSound.playAsync();
+      };
+
+      reader.readAsDataURL(audioBlob);
+    } catch (error) {
+      console.error("Falha ao gerar bronca:", error);
+    } finally {
+      setIsLoadingAudio(false);
+    }
+  };
 
   return (
     <>
@@ -152,7 +187,13 @@ export default function TaskListScreen() {
           />
           {/* Botão flutuante no canto superior direito */}
           {showBroncaButton && (
-            <Pressable style={styles.fab} onPress={() => setModalVisible(true)}>
+            <Pressable
+              style={styles.fab}
+              onPress={async () => {
+                setModalVisible(true);
+                await playRoastForWorstTask();
+              }}
+            >
               <Image
                 source={require("../../assets/images/bronca.png")}
                 style={{ width: 50, height: 50 }}
@@ -171,11 +212,23 @@ export default function TaskListScreen() {
                 <Text style={styles.audioTitle}>
                   O madai tem uma bronca para você!
                 </Text>
-                <Pressable onPress={togglePlayback} style={styles.audioButton}>
+                <Pressable
+                  onPress={togglePlayback}
+                  style={[
+                    styles.audioButton,
+                    isLoadingAudio && { opacity: 0.5 },
+                  ]}
+                  disabled={isLoadingAudio}
+                >
                   <Text style={styles.audioButtonText}>
-                    {isPlaying ? "⏸️ Pausar" : "▶️ Tocar"}
+                    {isLoadingAudio
+                      ? "🔄 Carregando bronca..."
+                      : isPlaying
+                      ? "⏸️ Pausar"
+                      : "▶️ Tocar"}
                   </Text>
                 </Pressable>
+
                 <Pressable
                   onPress={() => {
                     setModalVisible(false);
