@@ -97,7 +97,6 @@ export default function VoiceScreen() {
         aiGuidance: guidance,
       });
 
-      console.log("Task created:", task);
       return task;
     },
     onSuccess: () => {
