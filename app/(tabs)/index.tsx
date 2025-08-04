@@ -65,6 +65,7 @@ export default function TaskListScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [sound, setSound] = useState<any>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [showBroncaButton, setShowBroncaButton] = useState(false);
 
   const audioUri =
     "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"; // troque para seu áudio
@@ -93,6 +94,22 @@ export default function TaskListScreen() {
       sound && sound.unloadAsync();
     };
   }, [sound]);
+
+  useEffect(() => {
+    const now = new Date();
+
+    const hasUrgentTask = tasks.some((task) => {
+      if (task.status !== "pending") return false;
+
+      const timeDiff = task.dueDate.getTime() - now.getTime();
+      const isOverdue = timeDiff < 0;
+      const isWithin24h = timeDiff <= 24 * 60 * 60 * 1000;
+
+      return isOverdue || isWithin24h;
+    });
+
+    setShowBroncaButton(hasUrgentTask);
+  }, [tasks]);
 
   return (
     <>
@@ -134,12 +151,14 @@ export default function TaskListScreen() {
             contentContainerStyle={styles.filterList}
           />
           {/* Botão flutuante no canto superior direito */}
-          <Pressable style={styles.fab} onPress={() => setModalVisible(true)}>
-            <Image
-              source={require("../../assets/images/bronca.png")}
-              style={{ width: 50, height: 50 }}
-            />
-          </Pressable>
+          {showBroncaButton && (
+            <Pressable style={styles.fab} onPress={() => setModalVisible(true)}>
+              <Image
+                source={require("../../assets/images/bronca.png")}
+                style={{ width: 50, height: 50 }}
+              />
+            </Pressable>
+          )}
 
           <Modal
             visible={modalVisible}
