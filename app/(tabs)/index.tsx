@@ -1,149 +1,73 @@
 import TaskCard from "@/components/TaskCard";
+import RoastModal from "@/components/RoastModal";
 import { useTasks } from "@/hooks/useTasks";
+import { useBronca } from "@/hooks/useBronca";
 import { Task } from "@/types";
 import { Stack, router } from "expo-router";
 import { useEffect, useState } from "react";
-import * as FileSystem from "expo-file-system";
 import {
   FlatList,
-  Modal,
   Pressable,
   StyleSheet,
   Text,
-  Image,
   View,
+  Image,
 } from "react-native";
-import { Audio } from "expo-av";
-import { BlurView } from "expo-blur";
-import { generateRoastAudio } from "@/services/aiService";
-
-type FilterType = "all" | "pending" | "completed" | "high" | "medium" | "low";
 
 export default function TaskListScreen() {
   const { tasks, updateTask } = useTasks();
-  const [filter, setFilter] = useState<FilterType>("all");
+  const [filter, setFilter] = useState<
+    "all" | "pending" | "completed" | "high" | "medium" | "low"
+  >("all");
+  const [modalVisible, setModalVisible] = useState(false);
+  const {
+    isPlaying,
+    isLoadingAudio,
+    togglePlayback,
+    playBroncaForTask,
+    stopBronca,
+  } = useBronca();
 
-  const getFilteredTasks = () => {
-    switch (filter) {
-      case "pending":
-        return tasks.filter((task) => task.status === "pending");
-      case "completed":
-        return tasks.filter((task) => task.status === "completed");
-      case "high":
-      case "medium":
-      case "low":
-        return tasks.filter((task) => task.priority === filter);
-      default:
-        return tasks;
-    }
+  const filteredTasks = tasks
+    .filter((task) => {
+      if (filter === "all") return true;
+      if (["pending", "completed"].includes(filter))
+        return task.status === filter;
+      return task.priority === filter;
+    })
+    .sort((a, b) => {
+      if (a.status !== b.status) return a.status === "pending" ? -1 : 1;
+      return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+    });
+
+  const [showBroncaButton, setShowBroncaButton] = useState(false);
+
+  useEffect(() => {
+    const now = new Date();
+    const hasUrgent = tasks.some((task) => {
+      if (task.status !== "pending") return false;
+      const diff = task.dueDate.getTime() - now.getTime();
+      return diff < 0 || diff <= 24 * 60 * 60 * 1000;
+    });
+    setShowBroncaButton(hasUrgent);
+  }, [tasks]);
+
+  const handleBronca = async () => {
+    const urgentTask = tasks
+      .filter((t) => t.status === "pending")
+      .sort(
+        (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
+      )[0];
+    if (!urgentTask) return;
+
+    setModalVisible(true);
+    await playBroncaForTask(urgentTask);
   };
-
-  const filteredTasks = getFilteredTasks().sort((a, b) => {
-    if (a.status !== b.status) {
-      return a.status === "pending" ? -1 : 1;
-    }
-    return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
-  });
 
   const handleToggleComplete = (task: Task) => {
     updateTask(task.id, {
       status: task.status === "completed" ? "pending" : "completed",
     });
-  };
-
-  const handleTaskPress = (task: Task) => {
-    router.push(`/task/${task.id}`);
-  };
-
-  const filters: { key: FilterType; label: string }[] = [
-    { key: "all", label: "All" },
-    { key: "pending", label: "Pending" },
-    { key: "completed", label: "Done" },
-    { key: "high", label: "High" },
-    { key: "medium", label: "Medium" },
-    { key: "low", label: "Low" },
-  ];
-
-  const [modalVisible, setModalVisible] = useState(false);
-  const [sound, setSound] = useState<any>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [showBroncaButton, setShowBroncaButton] = useState(false);
-  const [isLoadingAudio, setIsLoadingAudio] = useState(false);
-
-  const togglePlayback = async () => {
-    if (!sound) return;
-
-    if (isPlaying) {
-      await sound.pauseAsync();
-      setIsPlaying(false);
-    } else {
-      await sound.playAsync();
-      setIsPlaying(true);
-    }
-  };
-
-  useEffect(() => {
-    return () => {
-      sound && sound.unloadAsync();
-    };
-  }, [sound]);
-
-  useEffect(() => {
-    const now = new Date();
-
-    const hasUrgentTask = tasks.some((task) => {
-      if (task.status !== "pending") return false;
-
-      const timeDiff = task.dueDate.getTime() - now.getTime();
-      const isOverdue = timeDiff < 0;
-      const isWithin24h = timeDiff <= 24 * 60 * 60 * 1000;
-
-      return isOverdue || isWithin24h;
-    });
-
-    setShowBroncaButton(hasUrgentTask);
-  }, [tasks]);
-
-  const playRoastForWorstTask = async () => {
-    const urgentTask = tasks
-      .filter((task) => task.status === "pending")
-      .sort(
-        (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
-      )[0];
-
-    if (!urgentTask) return;
-
-    try {
-      setIsLoadingAudio(true);
-      const audioBlob = await generateRoastAudio(
-        urgentTask.title,
-        urgentTask.description
-      );
-
-      // Salva o áudio no armazenamento temporário
-      const path = `${FileSystem.cacheDirectory}bronca.mp3`;
-      const reader = new FileReader();
-
-      reader.onloadend = async () => {
-        const base64 = (reader.result as string).split(",")[1];
-        await FileSystem.writeAsStringAsync(path, base64, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
-
-        const { sound: newSound } = await Audio.Sound.createAsync({
-          uri: path,
-        });
-        setSound(newSound);
-        setIsPlaying(true);
-        await newSound.playAsync();
-      };
-
-      reader.readAsDataURL(audioBlob);
-    } catch (error) {
-      console.error("Falha ao gerar bronca:", error);
-    } finally {
-      setIsLoadingAudio(false);
-    }
   };
 
   return (
@@ -158,90 +82,56 @@ export default function TaskListScreen() {
           ),
         }}
       />
+
       <View style={styles.container}>
         <View style={styles.filterContainer}>
           <FlatList
             horizontal
             showsHorizontalScrollIndicator={false}
-            data={filters}
-            keyExtractor={(item) => item.key}
-            renderItem={({ item }) => (
+            data={
+              ["all", "pending", "completed", "high", "medium", "low"] as (
+                | "all"
+                | "pending"
+                | "completed"
+                | "high"
+                | "medium"
+                | "low"
+              )[]
+            }
+            keyExtractor={(item) => item}
+            renderItem={({
+              item,
+            }: {
+              item: "all" | "pending" | "completed" | "high" | "medium" | "low";
+            }) => (
               <Pressable
                 style={[
                   styles.filterButton,
-                  filter === item.key && styles.activeFilterButton,
+                  filter === item && styles.activeFilterButton,
                 ]}
-                onPress={() => setFilter(item.key)}
+                onPress={() => setFilter(item)}
               >
                 <Text
                   style={[
                     styles.filterText,
-                    filter === item.key && styles.activeFilterText,
+                    filter === item && styles.activeFilterText,
                   ]}
                 >
-                  {item.label}
+                  {item[0].toUpperCase() + item.slice(1)}
                 </Text>
               </Pressable>
             )}
             contentContainerStyle={styles.filterList}
           />
-          {/* Botão flutuante no canto superior direito */}
+
           {showBroncaButton && (
-            <Pressable
-              style={styles.fab}
-              onPress={async () => {
-                setModalVisible(true);
-                await playRoastForWorstTask();
-              }}
-            >
+            <Pressable style={styles.fab} onPress={handleBronca}>
               <Image
                 source={require("../../assets/images/bronca.png")}
                 style={{ width: 50, height: 50 }}
               />
             </Pressable>
           )}
-
-          <Modal
-            visible={modalVisible}
-            transparent
-            animationType="fade"
-            onRequestClose={() => setModalVisible(false)}
-          >
-            <BlurView intensity={50} tint="dark" style={styles.modalOverlay}>
-              <View style={styles.modalContent}>
-                <Text style={styles.audioTitle}>
-                  O madai tem uma bronca para você!
-                </Text>
-                <Pressable
-                  onPress={togglePlayback}
-                  style={[
-                    styles.audioButton,
-                    isLoadingAudio && { opacity: 0.5 },
-                  ]}
-                  disabled={isLoadingAudio}
-                >
-                  <Text style={styles.audioButtonText}>
-                    {isLoadingAudio
-                      ? "🔄 Carregando bronca..."
-                      : isPlaying
-                      ? "⏸️ Pausar"
-                      : "▶️ Tocar"}
-                  </Text>
-                </Pressable>
-
-                <Pressable
-                  onPress={() => {
-                    setModalVisible(false);
-                    sound && sound.unloadAsync();
-                    setSound(null);
-                    setIsPlaying(false);
-                  }}
-                >
-                  <Text style={styles.closeText}>Fechar</Text>
-                </Pressable>
-              </View>
-            </BlurView>
-          </Modal>
         </View>
 
         {filteredTasks.length === 0 ? (
@@ -260,7 +150,7 @@ export default function TaskListScreen() {
             renderItem={({ item }) => (
               <TaskCard
                 task={item}
-                onPress={() => handleTaskPress(item)}
+                onPress={() => router.push(`/task/${item.id}`)}
                 onToggleComplete={() => handleToggleComplete(item)}
               />
             )}
@@ -269,6 +159,17 @@ export default function TaskListScreen() {
           />
         )}
       </View>
+
+      <RoastModal
+        visible={modalVisible}
+        onClose={() => {
+          setModalVisible(false);
+          stopBronca();
+        }}
+        isLoading={isLoadingAudio}
+        isPlaying={isPlaying}
+        onPlayPause={togglePlayback}
+      />
     </>
   );
 }
@@ -342,50 +243,5 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     zIndex: 10,
     elevation: 5,
-  },
-  fabText: {
-    color: "#fff",
-    fontSize: 24,
-  },
-
-  modalOverlay: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backdropFilter: "blur(10px)",
-  },
-
-  modalContent: {
-    backgroundColor: "rgba(255,255,255,0.9)",
-    borderRadius: 12,
-    padding: 24,
-    width: "80%",
-    alignItems: "center",
-  },
-
-  audioTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    marginBottom: 16,
-  },
-
-  audioButton: {
-    backgroundColor: "#007AFF",
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginBottom: 12,
-  },
-
-  audioButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-
-  closeText: {
-    color: "#007AFF",
-    fontWeight: "600",
-    fontSize: 14,
   },
 });
