@@ -83,7 +83,6 @@ export default function TaskCard({
               <Text style={styles.priorityText}>
                 {task.priority.toUpperCase()}
               </Text>
-              {/* <Text style={styles.priorityText}>Normal</Text> */}
             </View>
             <Text style={styles.category}>{task.category}</Text>
           </View>
