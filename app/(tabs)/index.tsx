@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#f0f0f0",
   },
   activeFilterButton: {
-    backgroundColor: "#007AFF",
+    backgroundColor: "#e90d0dff",
   },
   filterText: {
     fontSize: 14,
