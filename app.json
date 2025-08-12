@@ -8,9 +8,16 @@
     "scheme": "criacompmadai",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+
     "ios": {
-      "supportsTablet": true
+      "bundleIdentifier": "com.samuelna.criacompmadai",
+      "buildNumber": "1",
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Permitir que o MadAI use o microfone para gravar suas tarefas por voz."
+      }
     },
+
     "android": {
       "permissions": [
         "RECORD_AUDIO",
@@ -25,11 +32,13 @@
       "edgeToEdgeEnabled": true,
       "package": "com.samuelna.criacompmadai"
     },
+
     "web": {
       "bundler": "metro",
       "output": "static",
       "favicon": "./assets/images/icon.png"
     },
+
     "plugins": [
       "expo-router",
       [
@@ -48,15 +57,14 @@
         }
       ]
     ],
-    "experiments": {
-      "typedRoutes": true
-    },
+
+    "experiments": { "typedRoutes": true },
+
     "extra": {
       "router": {},
-      "eas": {
-        "projectId": "bbb2d598-d219-4c04-a033-d2e0f922e3ae"
-      }
+      "eas": { "projectId": "bbb2d598-d219-4c04-a033-d2e0f922e3ae" }
     },
+
     "owner": "samuelna"
   }
 }
